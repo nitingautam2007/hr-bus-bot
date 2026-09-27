@@ -80,9 +80,10 @@ DEPOTS = [
 ]
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Clean main keyboard with only 2 options."""
+    """Clean main keyboard with 1. Search Bus, 2. Help, and 3. Suggestion."""
     keyboard = [
-        ["1. Search Bus", "2. Help"]
+        ["1. Search Bus"],
+        ["2. Help", "3. Suggestion"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -212,16 +213,21 @@ def format_timetable_response(
 
     return "\n".join(lines), has_more
 
+SUGGESTION_URL = "https://t.me/nitingautam2007"
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles /start command with clean welcome and 2-button keyboard."""
+    """Handles /start command with polite welcome, timetable info, emergency notice, and navigation."""
     context.user_data.clear()
 
     message = (
-        f"{DISCLAIMER_TEXT}\n\n"
-        "Welcome to Haryana Roadways Timetable Assistant.\n\n"
-        "Please select an option below:\n"
-        "1. Search Bus - Select From and To bus depots\n"
-        "2. Help - Instructions and information"
+        "Welcome to Haryana Roadways Timetable Assistant! 🚌\n\n"
+        "I am a student passionate about building helpful community projects. "
+        "This bot provides timetable reference data sourced directly from official Haryana Roadways depot records (hartrans.gov.in).\n\n"
+        "📌 Key Information:\n"
+        "• Timetable Reliability: Bus schedules generally remain stable throughout the season and rarely change day-to-day. The bot automatically refreshes data weekly from official records.\n"
+        "• Important Notice: For urgent or emergency travel, please verify timings directly with your local bus stand inquiry or the official website, as operational changes, maintenance, or bot errors can occur.\n\n"
+        "💡 Suggestions & Feedback:\n"
+        "Have an idea, found an issue, or want to suggest a route? Tap '3. Suggestion' below to reach out directly!"
     )
 
     await update.message.reply_text(
@@ -233,13 +239,30 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Handles /help command."""
     help_text = (
         "Haryana Roadways Timetable Help:\n\n"
-        "1. Tap '1. Search Bus' to pick your origin and destination depots.\n"
-        "2. Or type your route directly: 'Chandigarh to Delhi'.\n\n"
+        "1. Tap '1. Search Bus' to pick origin, destination, and departure time.\n"
+        "2. Or type your route directly: 'Chandigarh to Delhi'.\n"
+        "3. Tap '3. Suggestion' to send feedback or report issues.\n\n"
         f"{DISCLAIMER_TEXT}"
     )
     await update.message.reply_text(
         help_text,
         reply_markup=get_main_keyboard()
+    )
+
+async def suggestion_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles 3. Suggestion command with direct Telegram link."""
+    text = (
+        "💡 Suggestions & Feedback\n\n"
+        "Thank you for using this bot! Since this is a student project, your feedback and suggestions help make it better for everyone.\n\n"
+        "If you noticed incorrect timings, missing routes, or have ideas for new features, feel free to send a message:\n\n"
+        "👉 Profile: @nitingautam2007"
+    )
+    inline_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💬 Send Suggestion (@nitingautam2007)", url=SUGGESTION_URL)]
+    ])
+    await update.message.reply_text(
+        text,
+        reply_markup=inline_kb
     )
 
 async def show_from_depots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -377,6 +400,11 @@ async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await help_command(update, context)
         return
 
+    # 3. Suggestion
+    if text in ("3. Suggestion", "3", "Suggestion", "Feedback", "/suggestion", "/feedback"):
+        await suggestion_command(update, context)
+        return
+
     # Direct "From to To" text (e.g. "Chandigarh to Delhi")
     if " to " in text.lower():
         parts = [p.strip() for p in text.lower().split(" to ", 1)]
@@ -461,7 +489,7 @@ async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # If user sent any other text
     await update.message.reply_text(
-        "Please select '1. Search Bus' to check timetables or '2. Help'.",
+        "Please select '1. Search Bus', '2. Help', or '3. Suggestion'.",
         reply_markup=get_main_keyboard()
     )
 
@@ -482,6 +510,8 @@ def create_bot_application() -> Application:
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("suggestion", suggestion_command))
+    app.add_handler(CommandHandler("feedback", suggestion_command))
     app.add_handler(CommandHandler("search", text_message_handler))
     app.add_handler(CallbackQueryHandler(show_all_callback, pattern="^show_all$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
