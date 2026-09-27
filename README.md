@@ -1,18 +1,21 @@
-# 🚌 Haryana Roadways Timetable Telegram Bot & Mini App
+# 🚌 Haryana Roadways Timetable Telegram Bot
 
-A Telegram Bot and Telegram Mini App that provides real, verified Haryana Roadways bus timetables extracted directly from official government publications on `hartrans.gov.in`.
+An automated Telegram Bot and timetable reference tool that provides real, verified Haryana Roadways bus schedules extracted directly from official government records on [`hartrans.gov.in`](https://hartrans.gov.in).
+
+Built as a student community project to help daily commuters, students, and travelers across Haryana! 🤝
 
 ---
 
 ## 🌟 Key Features
 
-- **Strictly Official Data**: All schedules are scraped directly from official depot PDF publications uploaded by the Department of State Transport, Haryana.
-- **Zero Route Mismatches**: Controlled-vocabulary station autocomplete in the Telegram Mini App prevents spelling errors and invalid route lookups.
-- **Directional Accuracy**: Respects origin &rarr; via &rarr; destination order (e.g. Chandigarh to Delhi only shows southbound trips, never reverse trips).
-- **Upcoming Departures**: Automatically sorts departures with upcoming buses shown first relative to Indian Standard Time (IST).
-- **Official Source Traceability**: Every bus timing cites the exact depot source and government verification date.
-- **Unofficial Disclaimer**: Strict compliance with government attribution guidelines (prominently displays unofficial assistant disclaimers).
-- **Dual Mode**: Works via the Telegram Mini App button and built-in `/search <From> <To>` fallback command.
+- **Official Government Data**: Direct timetable extraction from 25+ depot PDF publications uploaded by the Department of State Transport, Haryana.
+- **Over 19,800+ Verified Departures**: Extensive route coverage across all Haryana Roadways depots and major bus stands.
+- **Directional & Time Filtering**: Search buses by Origin, Destination, and 3-hour departure windows (e.g. `12PM - 3PM`, `6AM - 9AM`) or `All Times`.
+- **🔄 Instant Return Bus**: 1-tap interactive button to immediately check reverse route timings with real-time Indian Standard Time (IST) departure sorting.
+- **📞 Official Depot Enquiry Numbers**: Search results automatically display verified phone numbers for the origin & destination bus stands so passengers can call directly in urgent situations.
+- **7-Day Automatic Auto-Refresh**: Background job (APScheduler) re-downloads and updates timetables weekly on autopilot.
+- **Expandable Results**: Clean, clutter-free messages with a one-tap `[Show all buses]` inline expander.
+- **Dual Mode (Local & Cloud)**: Supports local polling mode as well as production webhook deployment on free cloud platforms (Render.com).
 
 ---
 
@@ -20,85 +23,91 @@ A Telegram Bot and Telegram Mini App that provides real, verified Haryana Roadwa
 
 ```
 Hr Bus/
-├── .env                  # Environment config (add your BOT_TOKEN here)
+├── .env                  # Local environment config (git-ignored)
 ├── .env.example          # Environment template
+├── Procfile              # Render / cloud process file
+├── render.yaml           # Infrastructure-as-code config for Render.com
 ├── requirements.txt      # Python dependencies
-├── hr-roadways-bot-prd.md# Product Requirement Document
 ├── data/
-│   ├── roadways.db       # SQLite database storing stations, routes, and departures
+│   ├── roadways.db       # SQLite database (stations, routes, departures)
 │   └── pdfs/             # Downloaded official depot PDFs cache
 ├── src/
-│   ├── config.py         # Application configuration
+│   ├── config.py         # Application configuration & env vars
 │   ├── database/
 │   │   ├── db.py         # SQLite schema initialization and connection helpers
-│   │   └── queries.py    # Controlled vocabulary search and directional route matcher
+│   │   └── queries.py    # Multi-station directional search & time filtering
 │   ├── ingestion/
 │   │   ├── scraper.py    # Discovers depot PDFs on hartrans.gov.in
-│   │   └── parser.py     # PyMuPDF table extraction and database population
+│   │   └── parser.py     # Adaptive PyMuPDF table parser (handles dot/dash times)
 │   ├── api/
-│   │   └── app.py        # FastAPI server hosting autocomplete API and Mini App
+│   │   └── app.py        # FastAPI backend serving health & webhook endpoints
 │   ├── bot/
-│   │   └── bot.py        # Telegram Bot handlers (/start, WebApp data, /search)
-│   └── webapp/
-│       ├── index.html    # Mini App UI (mobile-first, Telegram WebApp SDK)
-│       ├── styles.css    # Responsive theme matching Telegram theme colors
-│       └── app.js        # Autocomplete, swap, validation, sendData()
+│   │   └── bot.py        # Telegram Bot handlers (navigation, search, callbacks)
+│   └── webapp/           # Telegram Mini App frontend (HTML/CSS/JS)
 ├── scripts/
-│   ├── ingest_all.py     # Ingests all or subset of official government depot PDFs
-│   ├── check_stats.py    # Inspects current database record counts
-│   └── run_server.py     # Starts FastAPI and Telegram Bot concurrently
+│   ├── ingest_all.py     # Ingestion script to crawl and parse all 25 depot PDFs
+│   ├── check_stats.py    # Quick database statistics inspector
+│   └── run_server.py     # Unified launcher (FastAPI + Bot + Scheduler)
 └── tests/
-    ├── test_parser.py    # Tests station normalization
-    └── test_queries.py   # Tests route matching, via stops, and time sorting
+    ├── test_parser.py    # Tests station normalization & parser logic
+    └── test_queries.py   # Tests route matching and time filtering
 ```
 
 ---
 
-## 🚀 Quick Setup & Usage
+## 🚀 Quick Setup & Local Development
 
-### 1. Set Your Bot Token
-Open `.env` and replace `YOUR_TELEGRAM_BOT_TOKEN_HERE` with your Telegram Bot token from [@BotFather](https://t.me/botfather):
-```env
-BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
-WEBAPP_URL=http://localhost:8000/webapp/
+### 1. Clone & Install Dependencies
+```bash
+git clone https://github.com/nitingautam2007/hr-bus-bot.git
+cd hr-bus-bot
+pip install -r requirements.txt
 ```
 
-### 2. Ingest Depot Timetables
-The database is already pre-populated with **4,000+ verified departures** from major depots (Ambala, Bhiwani, Chandigarh).
-
-To ingest more depots (or all 25 official depots):
+### 2. Configure Environment
+Create a `.env` file from the template:
 ```bash
-# Ingest next 5 depots
-python scripts/ingest_all.py --limit 5
+cp .env.example .env
+```
+Open `.env` and add your bot token from [@BotFather](https://t.me/botfather):
+```env
+BOT_TOKEN=your_telegram_bot_token_here
+HOST=0.0.0.0
+PORT=8000
+DB_PATH=data/roadways.db
+```
 
-# Or ingest all available depots
+### 3. Ingest Depot Data (Optional locally)
+If running locally with an empty database:
+```bash
 python scripts/ingest_all.py
 ```
+*(On cloud deployment like Render, auto-ingestion runs automatically on first boot).*
 
-### 3. Launch Server & Bot
-Run the unified server launcher:
+### 4. Run the Bot
 ```bash
 python scripts/run_server.py
 ```
-This will:
-- Start the **FastAPI WebApp & Autocomplete API** at `http://localhost:8000/webapp/`.
-- Start the **Telegram Bot** polling loop.
-
-### 4. Running the Test Suite
-```bash
-python -m pytest tests/
-```
 
 ---
 
-## 📱 Telegram Mini App Setup (Production / HTTPS)
-Telegram Web Apps require an HTTPS URL when opened inside Telegram clients:
-- You can tunnel your local server using [ngrok](https://ngrok.com) or Cloudflare Tunnels:
-  ```bash
-  ngrok http 8000
-  ```
-- Copy the `https://...` URL into `.env`:
-  ```env
-  WEBAPP_URL=https://your-ngrok-subdomain.ngrok-free.app/webapp/
-  ```
-- Set your Web App URL in [@BotFather](https://t.me/botfather) under **Bot Settings > Menu Button > Configure menu button**.
+## ☁️ 24/7 Free Deployment (Render.com)
+
+1. **Push to GitHub**: Push this repository to your GitHub account.
+2. **Deploy on Render**:
+   - Create a free **Web Service** on [Render.com](https://render.com).
+   - Connect your GitHub repository.
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `python scripts/run_server.py`
+3. **Set Environment Variables on Render**:
+   - `BOT_TOKEN`: Your Telegram Bot token from @BotFather
+   - `WEBHOOK_URL`: Your Render service URL (e.g. `https://your-service.onrender.com`)
+   - `WEBHOOK_SECRET`: A secure passphrase for Telegram webhook validation
+4. **Keep Awake**:
+   - Set up a free HTTP monitor on [UptimeRobot](https://uptimerobot.com) pinging `https://your-service.onrender.com/api/health` every 5 minutes.
+
+---
+
+## ⚖️ Disclaimer
+
+*This project is an unofficial community reference tool built for educational and public convenience purposes. It is **not** endorsed, operated, or officially affiliated with the Department of State Transport or Government of Haryana. All timetable data is publicly accessible and sourced from [hartrans.gov.in](https://hartrans.gov.in).*
