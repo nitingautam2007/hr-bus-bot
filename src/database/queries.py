@@ -311,9 +311,11 @@ def find_departures_by_names(
         JOIN stations s_to ON r.to_station_id = s_to.id
         LEFT JOIN stations s_via ON r.via_station_id = s_via.id
         WHERE 
-            (r.from_station_id IN ({p_from}) AND r.to_station_id IN ({p_to}))
-            OR (r.from_station_id IN ({p_from}) AND r.via_station_id IN ({p_to}))
-            OR (r.via_station_id IN ({p_from}) AND r.to_station_id IN ({p_to}))
+            (
+                (r.from_station_id IN ({p_from}) AND r.to_station_id IN ({p_to}))
+                OR (r.from_station_id IN ({p_from}) AND r.via_station_id IN ({p_to}))
+                OR (r.via_station_id IN ({p_from}) AND r.to_station_id IN ({p_to}))
+            )
         {time_filter}
         ORDER BY d.departure_time ASC
         """
