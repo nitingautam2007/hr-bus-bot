@@ -383,6 +383,19 @@ async def show_to_depots(update: Update, context: ContextTypes.DEFAULT_TYPE, fro
         reply_markup=get_depot_keyboard(exclude_depot=from_depot, show_back=True)
     )
 
+def make_result_keyboard(from_name: str, to_name: str, has_more: int = 0, total_count: int = 0) -> InlineKeyboardMarkup:
+    """Builds inline keyboard with 'Show all' (if more) and 'Return Bus' buttons."""
+    buttons = []
+    if has_more > 0:
+        buttons.append([InlineKeyboardButton(f"Show all {total_count} buses", callback_data="show_all")])
+
+    # Return bus button: e.g. "🔄 Return: Gohana → Jind"
+    return_label = f"🔄 Return: {to_name.title()} → {from_name.title()}"
+    return_cb = f"ret:{to_name[:20]}:{from_name[:20]}"
+    buttons.append([InlineKeyboardButton(return_label, callback_data=return_cb)])
+
+    return InlineKeyboardMarkup(buttons)
+
 async def handle_search_result(update: Update, context: ContextTypes.DEFAULT_TYPE, from_name: str, to_name: str) -> None:
     """Queries DB and outputs the timetable (no time filter, called from direct text)."""
     current_time = get_ist_time()
@@ -394,12 +407,8 @@ async def handle_search_result(update: Update, context: ContextTypes.DEFAULT_TYP
         "departures": departures, "current_time": current_time, "time_label": None,
     }
     reply, has_more = format_timetable_response(from_name.upper(), to_name.upper(), departures, current_time)
-    if has_more > 0:
-        inline_kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"Show all {len(departures)} buses", callback_data="show_all")]])
-        await update.message.reply_text(reply, reply_markup=inline_kb)
-        await update.message.reply_text("Search again:", reply_markup=get_main_keyboard())
-    else:
-        await update.message.reply_text(reply, reply_markup=get_main_keyboard())
+    inline_kb = make_result_keyboard(from_name, to_name, has_more=has_more, total_count=len(departures))
+    await update.message.reply_text(reply, reply_markup=inline_kb)
 
 async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE, to_depot: str) -> None:
     """Asks user to pick a time range after selecting FROM and TO depots."""
@@ -437,12 +446,8 @@ async def handle_search_result_timed(
     reply, has_more = format_timetable_response(
         from_name.upper(), to_name.upper(), departures, current_time, time_label=time_label,
     )
-    if has_more > 0:
-        inline_kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"Show all {len(departures)} buses", callback_data="show_all")]])
-        await update.message.reply_text(reply, reply_markup=inline_kb)
-        await update.message.reply_text("Search again:", reply_markup=get_main_keyboard())
-    else:
-        await update.message.reply_text(reply, reply_markup=get_main_keyboard())
+    inline_kb = make_result_keyboard(from_name, to_name, has_more=has_more, total_count=len(departures))
+    await update.message.reply_text(reply, reply_markup=inline_kb)
 
 async def show_all_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the 'Show all buses' inline button — expands the message to show every departure."""
@@ -464,7 +469,39 @@ async def show_all_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from_name.upper(), to_name.upper(), departures, current_time,
         time_label=time_label, show_all=True,
     )
-    await query.edit_message_text(full_text)
+    return_kb = make_result_keyboard(from_name, to_name, has_more=0, total_count=len(departures))
+    await query.edit_message_text(full_text, reply_markup=return_kb)
+
+async def return_bus_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles the '🔄 Return Bus' inline button — queries latest live data for the reverse route."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data or ""
+    parts = data.split(":", 2)
+    if len(parts) != 3:
+        return
+
+    rev_from = parts[1]
+    rev_to = parts[2]
+
+    current_time = get_ist_time()
+    departures = find_departures_by_names(rev_from, rev_to, current_time=current_time)
+
+    context.user_data["last_search"] = {
+        "from_name": rev_from,
+        "to_name": rev_to,
+        "departures": departures,
+        "current_time": current_time,
+        "time_label": None,
+    }
+
+    reply, has_more = format_timetable_response(
+        rev_from.upper(), rev_to.upper(), departures, current_time
+    )
+
+    kb = make_result_keyboard(rev_from, rev_to, has_more=has_more, total_count=len(departures))
+    await query.message.reply_text(reply, reply_markup=kb)
 
 
 async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -622,6 +659,7 @@ def create_bot_application() -> Application:
     app.add_handler(CommandHandler("search", text_message_handler))
     app.add_handler(CallbackQueryHandler(show_all_callback, pattern="^show_all$"))
     app.add_handler(CallbackQueryHandler(helplines_callback, pattern="^show_helplines$"))
+    app.add_handler(CallbackQueryHandler(return_bus_callback, pattern=r"^ret:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
     app.add_error_handler(error_handler)
 
