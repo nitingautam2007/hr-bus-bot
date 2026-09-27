@@ -11,6 +11,6 @@ services:
       - key: WEBHOOK_URL
         sync: false          # You'll paste your Render URL here after first deploy
       - key: WEBHOOK_SECRET
-        value: hrbusbot_secret_2024
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.0

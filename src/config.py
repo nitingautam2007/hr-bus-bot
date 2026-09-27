@@ -16,7 +16,7 @@ PORT = int(os.getenv("PORT", "8000"))
 # Webhook config (set these on Render dashboard)
 # WEBHOOK_URL = full public URL e.g. https://hr-bus-bot.onrender.com
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "hrbusbot_secret_2024").strip()
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 
 # Database path resolution
 _db_env = os.getenv("DB_PATH", "data/roadways.db")
