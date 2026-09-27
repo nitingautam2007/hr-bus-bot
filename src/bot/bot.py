@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
+from typing import Optional
 import pytz
 from telegram import (
     Update,
@@ -79,6 +80,54 @@ DEPOTS = [
     "Yamunanagar",
 ]
 
+# Official Haryana Roadways Bus Stand / Depot Enquiry Phone Numbers (hartrans.gov.in)
+DEPOT_CONTACTS = {
+    "Ambala Cantt": "0171-2640821",
+    "Ambala City": "0171-2556388",
+    "Bahadurgarh": "94671-54209",
+    "Bhiwani": "01664-242230",
+    "Chandigarh": "0172-2704014",
+    "Charkhi Dadri": "01250-220144",
+    "Dabwali": "01668-226115",
+    "Delhi (ISBT)": "011-42161053",
+    "Faridabad": "0129-2244953",
+    "Fatehabad": "01667-220617",
+    "Gohana": "01263-252140",
+    "Gurugram": "0124-2320222",
+    "Hansi": "01663-254081",
+    "Hisar": "01662-233285",
+    "Jhajjar": "94671-54214",
+    "Jind": "01681-245370",
+    "Kaithal": "01746-224214",
+    "Kalka": "01733-225125",
+    "Karnal": "0184-2251158",
+    "Kurukshetra": "01744-220468",
+    "Narnaul": "01282-251947",
+    "Narwana": "01684-240104",
+    "Nuh": "01267-274714",
+    "Palwal": "01275-240285",
+    "Panchkula": "0172-2562200",
+    "Panipat": "0180-2646544",
+    "Pehowa": "01741-220102",
+    "Rewari": "01274-256751",
+    "Rohtak": "01262-276641",
+    "Sirsa": "01666-220866",
+    "Sonipat": "0130-2201101",
+    "Tohana": "01692-220036",
+    "Yamunanagar": "01732-227717",
+}
+
+def get_depot_contact(name: str) -> Optional[str]:
+    """Finds matching depot enquiry phone number by station name."""
+    if not name:
+        return None
+    name_clean = re.sub(r"\s*\(.*?\)", "", name).strip().lower()
+    for depot, phone in DEPOT_CONTACTS.items():
+        depot_clean = re.sub(r"\s*\(.*?\)", "", depot).strip().lower()
+        if depot_clean in name_clean or name_clean in depot_clean:
+            return phone
+    return None
+
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Clean main keyboard with 1. Search Bus, 2. Help, and 3. Suggestion."""
     keyboard = [
@@ -150,13 +199,23 @@ def format_timetable_response(
     time_info = f"Time  : {time_label}" if time_label and time_label != "All Times" else f"Time  : {current_time} IST"
 
     if not departures:
+        from_phone = get_depot_contact(from_name)
+        to_phone = get_depot_contact(to_name)
+        enquiry_info = []
+        if from_phone:
+            enquiry_info.append(f"📞 {from_name.title()} Enquiry: {from_phone}")
+        if to_phone and to_phone != from_phone:
+            enquiry_info.append(f"📞 {to_name.title()} Enquiry: {to_phone}")
+        enquiry_block = ("\n" + "\n".join(enquiry_info) + "\n") if enquiry_info else ""
+
         text = (
             f"No Buses Found\n\n"
             f"From : {from_name.title()}\n"
             f"To      : {to_name.title()}\n"
             f"{time_info}\n\n"
-            "No buses found for this route and time window.\n\n"
-            "Try a different time range or check connecting routes via Ambala, Karnal, Panipat, or Rohtak."
+            "No direct buses found for this route and time window.\n"
+            f"{enquiry_block}\n"
+            "Tip: You can call the depot enquiry above or check connecting routes via Ambala, Karnal, Panipat, or Rohtak."
         )
         return text, 0
 
@@ -208,6 +267,19 @@ def format_timetable_response(
             btype = dep.get("bus_type", "ORDINARY").title()
             lines.append(f"  {t}  {btype}")
 
+    # Official depot enquiry contact numbers
+    from_phone = get_depot_contact(from_name)
+    to_phone = get_depot_contact(to_name)
+    contact_lines = []
+    if from_phone:
+        contact_lines.append(f"📞 {from_name.title()} Enquiry: {from_phone}")
+    if to_phone and to_phone != from_phone:
+        contact_lines.append(f"📞 {to_name.title()} Enquiry: {to_phone}")
+
+    if contact_lines:
+        lines.append("")
+        lines.extend(contact_lines)
+
     lines.append("")
     lines.append("Source: hartrans.gov.in  |  Data refreshed every 7 days")
 
@@ -235,18 +307,46 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         reply_markup=get_main_keyboard(),
     )
 
+def format_all_helplines() -> str:
+    """Formats a clean reference list of all official Haryana Roadways bus stand enquiry numbers."""
+    lines = [
+        "📞 Official Haryana Roadways Bus Stand Enquiry Numbers:\n"
+    ]
+    for depot, phone in sorted(DEPOT_CONTACTS.items()):
+        lines.append(f"• {depot}: {phone}")
+    lines.append("\nSource: hartrans.gov.in (Official Haryana Transport Dept)")
+    lines.append("Tip: Inquiries are answered by the respective bus stand control room.")
+    return "\n".join(lines)
+
+async def helplines_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sends the complete directory of official depot enquiry phone numbers."""
+    await update.message.reply_text(
+        format_all_helplines(),
+        reply_markup=get_main_keyboard()
+    )
+
+async def helplines_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Callback for 'View All Depot Enquiry Numbers' button in Help."""
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(format_all_helplines())
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles /help command."""
     help_text = (
         "Haryana Roadways Timetable Help:\n\n"
         "1. Tap '1. Search Bus' to pick origin, destination, and departure time.\n"
         "2. Or type your route directly: 'Chandigarh to Delhi'.\n"
-        "3. Tap '3. Suggestion' to send feedback or report issues.\n\n"
+        "3. Tap '3. Suggestion' to send feedback or report issues.\n"
+        "4. Tap the button below to view all official Bus Stand Enquiry numbers.\n\n"
         f"{DISCLAIMER_TEXT}"
     )
+    inline_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📞 View All Depot Enquiry Numbers", callback_data="show_helplines")]
+    ])
     await update.message.reply_text(
         help_text,
-        reply_markup=get_main_keyboard()
+        reply_markup=inline_kb
     )
 
 async def suggestion_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -405,6 +505,11 @@ async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await suggestion_command(update, context)
         return
 
+    # Helplines lookup
+    if text.lower() in ("helpline", "helplines", "contact", "contacts", "enquiry", "/helpline", "/helplines", "/contact"):
+        await helplines_command(update, context)
+        return
+
     # Direct "From to To" text (e.g. "Chandigarh to Delhi")
     if " to " in text.lower():
         parts = [p.strip() for p in text.lower().split(" to ", 1)]
@@ -510,10 +615,13 @@ def create_bot_application() -> Application:
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("helpline", helplines_command))
+    app.add_handler(CommandHandler("helplines", helplines_command))
     app.add_handler(CommandHandler("suggestion", suggestion_command))
     app.add_handler(CommandHandler("feedback", suggestion_command))
     app.add_handler(CommandHandler("search", text_message_handler))
     app.add_handler(CallbackQueryHandler(show_all_callback, pattern="^show_all$"))
+    app.add_handler(CallbackQueryHandler(helplines_callback, pattern="^show_helplines$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
     app.add_error_handler(error_handler)
 
