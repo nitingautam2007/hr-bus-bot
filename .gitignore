@@ -1,0 +1,31 @@
+# Environment variables — never commit these
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Downloaded PDFs (large files, re-downloaded on deploy)
+data/pdfs/
+
+# SQLite database (re-generated on deploy)
+data/roadways.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: hr-bus-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/run_server.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false          # You'll paste this in Render dashboard
+      - key: WEBHOOK_URL
+        sync: false          # You'll paste your Render URL here after first deploy
+      - key: WEBHOOK_SECRET
+        value: hrbusbot_secret_2024
+      - key: PYTHON_VERSION
+        value: 3.11.0

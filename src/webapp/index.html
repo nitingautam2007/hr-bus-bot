@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Haryana Roadways Timetable</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-icon">🚌</div>
+      <div>
+        <h1>Haryana Roadways</h1>
+        <p class="subtitle">Official Timetable Search</p>
+      </div>
+    </header>
+
+    <div class="disclaimer-banner">
+      <span>ℹ️ Unofficial assistant using official public records from <strong>hartrans.gov.in</strong>.</span>
+    </div>
+
+    <form id="search-form" class="search-card" onsubmit="return false;">
+      <!-- Origin Input -->
+      <div class="input-group">
+        <label for="from-input">
+          <span class="dot origin-dot"></span>
+          From (Origin Bus Stand)
+        </label>
+        <div class="input-wrapper">
+          <input
+            type="text"
+            id="from-input"
+            placeholder="Type bus stand (e.g. Chandigarh)..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" class="clear-btn" id="from-clear" aria-label="Clear">&times;</button>
+        </div>
+        <div id="from-dropdown" class="autocomplete-dropdown hidden"></div>
+        <input type="hidden" id="from-id" />
+      </div>
+
+      <!-- Swap Button -->
+      <div class="swap-wrapper">
+        <button type="button" id="swap-btn" class="swap-btn" title="Swap From and To" aria-label="Swap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+            <polyline points="17 14 12 9 7 14"></polyline>
+            <line x1="12" y1="9" x2="12" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Destination Input -->
+      <div class="input-group">
+        <label for="to-input">
+          <span class="dot dest-dot"></span>
+          To (Destination Bus Stand)
+        </label>
+        <div class="input-wrapper">
+          <input
+            type="text"
+            id="to-input"
+            placeholder="Type bus stand (e.g. Delhi)..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" class="clear-btn" id="to-clear" aria-label="Clear">&times;</button>
+        </div>
+        <div id="to-dropdown" class="autocomplete-dropdown hidden"></div>
+        <input type="hidden" id="to-id" />
+      </div>
+
+      <!-- Submit Action Button -->
+      <button type="button" id="submit-btn" class="primary-btn" disabled>
+        Find Buses
+      </button>
+    </form>
+
+    <!-- Browser Mode / Live In-App Results -->
+    <div id="results-container" class="results-container hidden">
+      <div class="results-header">
+        <h2 id="results-title">Upcoming Buses</h2>
+        <span id="results-count" class="badge">0</span>
+      </div>
+      <div id="results-list" class="results-list"></div>
+    </div>
+
+    <footer class="app-footer">
+      <p>Data source: Department of State Transport, Haryana (hartrans.gov.in)</p>
+      <p>Controlled-vocabulary search prevents wrong-route mismatches.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
